@@ -68,6 +68,12 @@ export class Lampsmart {
     this.state.On = value as boolean;
 
     this.platform.log.debug('Set Characteristic On ->', value);
+
+    if (value) {
+      this.platform.bleHandler.turnOn();
+    } else {
+      this.platform.bleHandler.turnOff();
+    }
   }
 
   async getOn(): Promise<CharacteristicValue> {

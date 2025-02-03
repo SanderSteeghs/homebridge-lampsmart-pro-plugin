@@ -27,7 +27,7 @@ export class LampSmartPlatform implements DynamicPlatformPlugin {
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
 
-    this.bleHandler = new BleAdvertiser(this.log);
+    this.bleHandler = new BleAdvertiser(this.log, this.config.deviceId);
 
     this.log.debug('Finished initializing platform:', this.config.name);
 
@@ -35,8 +35,13 @@ export class LampSmartPlatform implements DynamicPlatformPlugin {
     // Dynamic Platform plugins should only register new accessories after this event was fired,
     // in order to ensure they weren't added to homebridge already. This event can also be used
     // to start discovery of new accessories.
-    this.api.on('didFinishLaunching', () => {
+    this.api.on('didFinishLaunching', async () => {
       log.debug('Executed didFinishLaunching callback');
+
+      this.bleHandler.start().catch(error => {
+        this.log.error('bleHandler encountered an error:', error);
+      });
+
       // run the method to discover / register your devices as accessories
       this.discoverDevices();
     });
@@ -59,67 +64,48 @@ export class LampSmartPlatform implements DynamicPlatformPlugin {
    * must not be registered again to prevent "duplicate UUID" errors.
    */
   discoverDevices() {
-    // EXAMPLE ONLY
-    // A real plugin you would discover accessories from the local network, cloud services
-    // or a user-defined array in the platform config.
-    const exampleDevices = [
-      {
-        exampleUniqueId: 'ABCD',
-        exampleDisplayName: 'Bedroom',
-      },
-      {
-        exampleUniqueId: 'EFGH',
-        exampleDisplayName: 'Kitchen',
-      },
-      {
-        // This is an example of a device which uses a Custom Service
-        exampleUniqueId: 'IJKL',
-        exampleDisplayName: 'Backyard',
-        CustomService: 'AirPressureSensor',
-      },
-    ];
+    // device is hardcoded in config.json, only 1 device is support as of now.
+    const device = this.config.deviceId.toString();
+    this.log.info(device);
 
-    // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
-      // generate a unique id for the accessory this should be generated from
-      // something globally unique, but constant, for example, the device serial
-      // number or MAC address
-      const uuid = this.api.hap.uuid.generate(device.exampleUniqueId);
+    // generate a unique id for the accessory this should be generated from
+    // something globally unique, but constant, for example, the device serial
+    // number or MAC address
+    const uuid = this.api.hap.uuid.generate(device);
 
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
-      const existingAccessory = this.accessories.get(uuid);
+    // see if an accessory with the same uuid has already been registered and restored from
+    // the cached devices we stored in the `configureAccessory` method above
+    const existingAccessory = this.accessories.get(uuid);
 
-      if (existingAccessory) {
-        // the accessory already exists
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+    if (existingAccessory) {
+      // the accessory already exists
+      this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
 
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new Lampsmart(this, existingAccessory);
+      // create the accessory handler for the restored accessory
+      // this is imported from `platformAccessory.ts`
+      new Lampsmart(this, existingAccessory);
 
-      } else {
-        // the accessory does not yet exist, so we need to create it
-        this.log.info('Adding new accessory:', device.exampleDisplayName);
+    } else {
+      // the accessory does not yet exist, so we need to create it
+      this.log.info('Adding new accessory:', device);
 
-        // create a new accessory
-        const accessory = new this.api.platformAccessory(device.exampleDisplayName, uuid);
+      // create a new accessory
+      const accessory = new this.api.platformAccessory(this.config.lampName, uuid);
 
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.device = device;
+      // store a copy of the device object in the `accessory.context`
+      // the `context` property can be used to store any data about the accessory you may need
+      accessory.context.device = device;
 
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new Lampsmart(this, accessory);
+      // create the accessory handler for the newly create accessory
+      // this is imported from `platformAccessory.ts`
+      new Lampsmart(this, accessory);
 
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-      }
-
-      // push into discoveredCacheUUIDs
-      this.discoveredCacheUUIDs.push(uuid);
+      // link the accessory to your platform
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }
+
+    // push into discoveredCacheUUIDs
+    this.discoveredCacheUUIDs.push(uuid);
 
     // you can also deal with accessories from the cache which are no longer present by removing them from Homebridge
     // for example, if your plugin logs into a cloud account to retrieve a device list, and a user has previously removed a device

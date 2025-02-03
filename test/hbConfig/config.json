@@ -7,8 +7,9 @@
   },
   "description": "HomeBridge HTTP Status Control",
   "plugins": [
-    "homebridge-lampsmart-plugin",
-    "homebridge-config-ui-x"
+    "homebridge-plugin-name",
+    "homebridge-config-ui-x",
+    "homebridge-lampsmart-plugin"
   ],
   "platforms": [
     {
@@ -24,7 +25,9 @@
     },
     {
       "name": "homebridge-lampsmart-plugin",
-      "platform": "LampsmartPlugin"
+      "platform": "LampsmartPlugin",
+      "deviceId": 2153078174,
+      "lampName": "Holodeck 5 Projector"
     }
   ],
   "accessories": []

@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "LampsmartPlugin",
   "pluginType": "platform",
   "singular": true,
   "strictValidation": false,
@@ -8,9 +8,22 @@
     "properties": {
       "name": {
         "title": "Name",
+        "description": "Plugin name as displayed in the Homebridge log.",
         "type": "string",
         "required": true,
-        "default": "Example Dynamic Platform"
+        "default": "LampSmart Pro"
+      },
+      "deviceId": {
+        "title": "Device ID",
+        "type": "number",
+        "required": true
+      },
+      "lampName": {
+        "title": "Name",
+        "description": "Name of the lamp",
+        "type": "string",
+        "required": true,
+        "default": "LampSmart Pro"
       }
     }
   }

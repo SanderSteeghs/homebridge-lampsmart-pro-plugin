@@ -7,7 +7,6 @@ import { LampSmartBleV2Packet } from './lampsmart-ble-v2.js';
 
 import type { Logging } from 'homebridge';
 
-// Constants for the BLE advertisement.
 const DEVICE_NAME = 'HomebridgeHub';
 
 function delay(ms: number) {
@@ -120,8 +119,9 @@ export class BleAdvertiser {
   private readonly mutex = new Mutex();
 
   constructor(
-      public readonly log: Logging) {
-    this.context = new BleContext(2153078174, 0, 138);
+      public readonly log: Logging,
+      deviceId: number) {
+    this.context = new BleContext(deviceId, 0, 138);
   }
 
   public async start() {
@@ -164,6 +164,7 @@ export class BleAdvertiser {
     await this.mutex.runExclusive(async () => {
       this.queue.push([cmd, args, encoded]);
       this.context.txCount += 1;
+      this.context.txCount %= 140;
     });
 
     console.log(this.context);
@@ -213,26 +214,6 @@ export class BleAdvertiser {
     }
   }
 }
-
-const bleAdvertiser = new BleAdvertiser(undefined!);
-bleAdvertiser.start().catch(error => {
-  console.log('BleAdvertiser encountered an error:', error);
-});
-
-setTimeout(() => {
-  console.log('Issuing turnOn command');
-  bleAdvertiser.turnOn().catch(err => console.log('Error turning on:', err));
-}, 1000);
-
-// setTimeout(() => {
-//   console.log('Issuing setColdWarmColor command');
-//   bleAdvertiser.setColdWarmColor(0, 255).catch(err => console.log('Error setting color:', err));
-// }, 3000);
-
-setTimeout(() => {
-  console.log('Issuing turnOff command');
-  bleAdvertiser.turnOff().catch(err => console.log('Error turning off:', err));
-}, 5000);
 
 bleno.on('stateChange', (state: string) => {
   console.log(`[Bleno] State changed to: ${state}`);

@@ -16,6 +16,7 @@
     "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
   },
   "keywords": [
+    "homebridge-plugin",
     "homebridge-lampsmart-plugin"
   ],
   "main": "dist/index.js",

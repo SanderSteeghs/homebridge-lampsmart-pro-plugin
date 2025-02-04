@@ -40,7 +40,7 @@ export class Lampsmart {
 
     // set the service name, this is what is displayed as the default name on the Home app
     // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.displayName);
+    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.displayName);
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Lightbulb
@@ -61,7 +61,7 @@ export class Lampsmart {
         minValue: this.minColorTemp,
         maxValue: this.maxColorTemp,
       })
-      .onSet(this.setColorTemperature.bind(this));
+      .onSet(this.setColorTemperature.bind(this)); // SET - bind to the `setColorTemperature` method below
   }
 
   async setOn(value: CharacteristicValue) {
@@ -104,19 +104,24 @@ export class Lampsmart {
       return;
     }
 
-    let wwLevel = (minreds - this.minColorTemp) / (this.maxColorTemp - this.minColorTemp);
-    wwLevel = Math.min(1, Math.max(0, wwLevel));
+    const midPoint = this.minColorTemp + (this.maxColorTemp - this.minColorTemp) / 2;
+    const midRange = midPoint - this.minColorTemp;
 
-    let cwLevel = 1 - wwLevel;
-    cwLevel = Math.min(1, Math.max(0, cwLevel));
+    let warmColor = undefined;
+    let coldColor = undefined;
+    if (minreds < midPoint) {
+      coldColor = (2.55 * brightness);
+      warmColor = ((2.55 * brightness) / midRange) * (minreds - this.minColorTemp);
+    } else {
+      coldColor = ((2.55 * brightness) / midRange) * (this.maxColorTemp - minreds);
+      warmColor = (2.55 * brightness);
+    }
 
-    brightness = brightness / 100; // range [0, 1]
+    warmColor = Math.round(warmColor);
+    coldColor = Math.round(coldColor);
 
-    const whiteLevel = (this.state.On ? 1 : 0) * brightness;
-    const coldColor = whiteLevel * cwLevel; // range [0, 1]
-    const warmColor = whiteLevel * wwLevel; // range [0, 1]
-
-    this.platform.log.debug('Set new Cold/Warm Color -> ', coldColor * 100, '/', warmColor * 100);
-    this.platform.bleHandler.setColdWarmColor(coldColor * 255, warmColor * 255);
+    this.platform.log.debug('Set new brightness and minreds', brightness, minreds);
+    this.platform.log.debug('Set new Cold/Warm Color -> ', coldColor, '/', warmColor);
+    await this.platform.bleHandler.setColdWarmColor(coldColor, warmColor);
   }
 }

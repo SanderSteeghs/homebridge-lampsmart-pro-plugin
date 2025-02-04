@@ -79,7 +79,6 @@ function stopAdv(timeoutMs = 500): Promise<void> {
     // Fallback timeout in case callback is never called.
     const timeout = setTimeout(() => {
       if (!resolved) {
-        console.log('stopAdv timed out, forcing resolve.');
         resolved = true;
         resolve();
       }
@@ -89,7 +88,6 @@ function stopAdv(timeoutMs = 500): Promise<void> {
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);
-        console.log('Advertising stopped.');
         resolve();
       }
     });
@@ -114,7 +112,7 @@ export class BleContext {
 
 export class BleAdvertiser {
 
-  private readonly queue: [LampCommand, number[], Uint8Array][] = [];
+  private queue: [LampCommand, Uint8Array][] = [];
   private readonly context: BleContext;
   private readonly mutex = new Mutex();
 
@@ -126,12 +124,16 @@ export class BleAdvertiser {
 
   public async start() {
 
+    bleno.on('stateChange', (state: string) => {
+      this.log.info(`[Bleno] State changed to: ${state}`);
+    });
+
     // Wait until bleno is powered on.
     while (bleno.state !== 'poweredOn') {
-      console.log('Waiting for bleno to be powered on...');
+      this.log.debug('Waiting for bleno to be powered on...');
       await delay(100);
     }
-    console.log('Starting BleAdvertiser processing loop...');
+    this.log.debug('bleno powered on...');
 
     return this.loop();
   }
@@ -162,17 +164,17 @@ export class BleAdvertiser {
     }
 
     await this.mutex.runExclusive(async () => {
-      this.queue.push([cmd, args, encoded]);
+      // replace all packets with the same command since the newest is the desired state
+      this.queue = this.queue.filter(x => x[0] !== cmd);
+      this.queue.push([cmd, encoded]);
       this.context.txCount += 1;
       this.context.txCount %= 140;
     });
-
-    console.log(this.context);
   }
 
   async loop() {
     while (true) {
-      let packet: [LampCommand, number[], Uint8Array] | undefined;
+      let packet: [LampCommand, Uint8Array] | undefined;
       // Use the mutex to safely extract an item from the queue.
       await this.mutex.runExclusive(async () => {
         if (this.queue.length > 0) {
@@ -185,19 +187,18 @@ export class BleAdvertiser {
         continue;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [cmd, _args, encoded] = packet;
-      console.log(LampSmartBleV2Packet.tryDecode(encoded));
+      const [cmd, encoded] = packet;
+      this.log.debug(LampSmartBleV2Packet.tryDecode(encoded)?.toString() ?? 'could not decode adv data');
 
       const advData = parseUint8ArrayToHexString(encoded);
 
       try {
-        await stopAdv();
+        // await stopAdv();
         await startAdv(DEVICE_NAME, advData);
 
-        console.log(`Advertising packet for command ${LampCommand[cmd]} started.`);
+        this.log.debug(`Advertising packet for command ${LampCommand[cmd]} started.`);
       } catch (err) {
-        console.log(`Failed to advertise packet for command ${LampCommand[cmd]}: ${err}`);
+        this.log.warn(`Failed to advertise packet for command ${LampCommand[cmd]}: ${err}`);
       }
 
       // Advertise this packet for 500ms
@@ -205,9 +206,9 @@ export class BleAdvertiser {
 
       try {
         await stopAdv();
-        console.log(`Advertising packet for command ${LampCommand[cmd]} stopped.`);
+        this.log.debug(`Advertising packet for command ${LampCommand[cmd]} stopped.`);
       } catch (err) {
-        console.log(`Failed to stop advertising for command ${LampCommand[cmd]}: ${err}`);
+        this.log.warn(`Failed to stop advertising for command ${LampCommand[cmd]}: ${err}`);
       }
 
       await delay(200);
@@ -215,10 +216,8 @@ export class BleAdvertiser {
   }
 }
 
-bleno.on('stateChange', (state: string) => {
-  console.log(`[Bleno] State changed to: ${state}`);
-});
-
+// Useful when debugging existing app/remote
+// not used in homebridge plugin
 const SCANNING = false;
 if (SCANNING) {
   noble.on('stateChange', (state: string) => {
@@ -246,6 +245,7 @@ if (SCANNING) {
  */
   noble.on('discover', (peripheral) => {
     const advertisement = peripheral.advertisement;
+
     if (!advertisement.serviceUuids) {
       return;
     }
@@ -255,6 +255,7 @@ if (SCANNING) {
       return;
     }
 
+    console.log('decoded lamp smart packet');
     console.log(packet);
   });
 }

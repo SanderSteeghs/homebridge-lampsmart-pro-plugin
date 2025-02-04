@@ -5,7 +5,7 @@ import type { LampCommand, BleContext } from './ble-advertiser.js';
 
 const HEADER = [0xF0, 0x08];
 
-const PREFIX = [0x20, 0x80, 0x56];
+const PREFIX = [0x20, 0x80, 0x00];
 const DEVICE_TYPE = 0x0100;
 
 const PACKET_LEN = 21;
@@ -61,7 +61,6 @@ export class LampSmartBleV2Packet {
 
   public static tryEncode(command: LampCommand, args: number[], context: BleContext): Uint8Array | undefined {
     if (args.length !== 4) {
-      console.log('invalid args length', args.length);
       return undefined;
     }
 
@@ -99,23 +98,19 @@ export class LampSmartBleV2Packet {
 
   public static tryDecode(fullBuffer: Uint8Array): LampSmartBleV2Packet | undefined {
     if (fullBuffer.length < HEADER.length + PREFIX.length + PACKET_LEN) {
-      // console.debug('invalid length');
       return undefined;
     }
 
     if (fullBuffer[0] !== HEADER[0] || fullBuffer[1] !== HEADER[1]) {
-      // console.debug('invalid header');
       return undefined;
     }
 
     const rawBuffer = fullBuffer.subarray(2);
     if (rawBuffer.length < PACKET_LEN + PREFIX.length) {
-      // console.debug('invalid length ', rawBuffer.length);
       return undefined;
     }
 
     if (rawBuffer[0] !== PREFIX[0] || rawBuffer[1] !== PREFIX[1]) {
-      // console.debug('invalid prefix: ', rawBuffer.subarray(0, 2));
       return undefined;
     }
 
@@ -125,7 +120,8 @@ export class LampSmartBleV2Packet {
     const crc = this.compute_crc16(rawBuffer.subarray(0, rawBuffer.length - 2), ~(seed));
     const whitenData = this.whiten(rawBuffer.subarray(2).subarray(0, rawBuffer.length - 6), seed & 0xFF, 0);
     if (whitenData[0] !== PREFIX[2]) {
-      // console.debug('invalid prefix (3rd byte): ', whitenData[0]);
+      // this does not matter for some reason
+      return undefined;
     }
 
     // reconstruct the buffer with the whitened slice
@@ -141,12 +137,10 @@ export class LampSmartBleV2Packet {
     const packet = new LampSmartBleV2Packet(buffer.subarray(PREFIX.length));
 
     if (packet.crc16 !== crc) {
-      // console.debug('invalid crc', packet.crc16);
       return undefined;
     }
 
     if (packet.type !== DEVICE_TYPE) {
-      // console.debug('invalid device type', packet.type);
       return undefined;
     }
 
@@ -206,11 +200,10 @@ export class LampSmartBleV2Packet {
     // Make sure seed is 16-bit
     seed = seed & 0xffff;
 
-    // Build the 16-byte key: note that in C++ sigkey[0..2] are overwritten.
     const sigkey = Buffer.from([
-      seed & 0xff,              // key byte 0: lower 8 bits of seed
-      (seed >> 8) & 0xff,       // key byte 1: upper 8 bits of seed
-      tx_count & 0xff,          // key byte 2: tx_count
+      seed & 0xff,
+      (seed >> 8) & 0xff,
+      tx_count & 0xff,
       0x0D, 0xBF, 0xE6, 0x42, 0x68,
       0x41, 0x99, 0x2D, 0x0F, 0xB0,
       0x54, 0xBB, 0x16,

@@ -109,8 +109,9 @@ export class Lampsmart {
     const normBrightness = brightness / 100;
 
     // Compute cold and warm colors
-    const coldColor = Math.round(normBrightness * (1 - Math.max(0, 2 * (normMinreds - 0.5))));
-    const warmColor = Math.round(normBrightness * Math.min(1, 2 * normMinreds));
+    const maxColorAmplitude = 255;
+    const coldColor = Math.round(maxColorAmplitude * normBrightness * (1 - Math.max(0, 2 * (normMinreds - 0.5))));
+    const warmColor = Math.round(maxColorAmplitude * normBrightness * Math.min(1, 2 * normMinreds));
 
     this.platform.log.debug('Set new brightness and minreds:', brightness, minreds);
     this.platform.log.debug('Set new Cold/Warm Color ->', coldColor, '/', warmColor);

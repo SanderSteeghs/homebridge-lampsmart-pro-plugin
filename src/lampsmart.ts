@@ -100,28 +100,21 @@ export class Lampsmart {
   async setColdWarmColor(brightness: number, minreds: number) {
 
     if (minreds < this.minColorTemp || minreds > this.maxColorTemp) {
-      this.platform.log.error('Mired value out of range (140-500) ', minreds);
+      this.platform.log.error(`Mired value out of range (${this.minColorTemp}-${this.maxColorTemp}):`, minreds);
       return;
     }
 
-    const midPoint = this.minColorTemp + (this.maxColorTemp - this.minColorTemp) / 2;
-    const midRange = midPoint - this.minColorTemp;
+    // Normalize minreds to range [0, 1]
+    const t = (minreds - this.minColorTemp) / (this.maxColorTemp - this.minColorTemp);
 
-    let warmColor = undefined;
-    let coldColor = undefined;
-    if (minreds < midPoint) {
-      coldColor = (2.55 * brightness);
-      warmColor = ((2.55 * brightness) / midRange) * (minreds - this.minColorTemp);
-    } else {
-      coldColor = ((2.55 * brightness) / midRange) * (this.maxColorTemp - minreds);
-      warmColor = (2.55 * brightness);
-    }
+    // Compute cold and warm colors
+    const brightnessFactor = 2.55 * brightness;
+    const coldColor = Math.round((1 - t) * brightnessFactor);
+    const warmColor = Math.round(t * brightnessFactor);
 
-    warmColor = Math.round(warmColor);
-    coldColor = Math.round(coldColor);
+    this.platform.log.debug('Set new brightness and minreds:', brightness, minreds);
+    this.platform.log.debug('Set new Cold/Warm Color ->', coldColor, '/', warmColor);
 
-    this.platform.log.debug('Set new brightness and minreds', brightness, minreds);
-    this.platform.log.debug('Set new Cold/Warm Color -> ', coldColor, '/', warmColor);
     await this.platform.bleHandler.setColdWarmColor(coldColor, warmColor);
   }
 }
